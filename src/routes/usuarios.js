@@ -1,6 +1,7 @@
 const { Router } = require("express");
 const { check } = require("express-validator");
 const { crearUsuario, mostrarUsuarios, loginUsuario, editarUsuario, eliminarUsuario } = require("../controllers/usuarioCRUD");
+const { agregarUsuario } = require("../controllers/ditecUsuariosControllers");
 
 
 const router_usuarios=Router();
@@ -11,12 +12,12 @@ router_usuarios.get("/", mostrarUsuarios)
 
 router_usuarios.post("/",
 [
-    check("nombre","el nombre es obligatorio").not().isEmpty(),
-    check("password","el password es obligatorio").not().isEmpty(),
+    check("nombre_ciudadano","el nombre es obligatorio").not().isEmpty(),
+    check("clave_ciudadano","el password es obligatorio").not().isEmpty(),
    
 ]
 
-,crearUsuario)
+,agregarUsuario)
 
 router_usuarios.post("/login",
 [
