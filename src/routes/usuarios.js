@@ -1,23 +1,22 @@
 const { Router } = require("express");
 const { check } = require("express-validator");
 const { crearUsuario, mostrarUsuarios, loginUsuario, editarUsuario, eliminarUsuario } = require("../controllers/usuarioCRUD");
-const { agregarUsuario } = require("../controllers/ditecUsuariosControllers");
+const { agregarUsuario, validarUsuario, obtenerTodosLosCiudadanos } = require("../controllers/ditecUsuariosControllers");
 
 
 const router_usuarios=Router();
 
 
 // endpoints de usuarios
-router_usuarios.get("/", mostrarUsuarios)
+router_usuarios.get("/",obtenerTodosLosCiudadanos)
 
 router_usuarios.post("/",
-[
-    check("nombre_ciudadano","el nombre es obligatorio").not().isEmpty(),
-    check("clave_ciudadano","el password es obligatorio").not().isEmpty(),
+// [
+//     check("nombre_ciudadano","el nombre es obligatorio").not().isEmpty(),
+//     check("clave_ciudadano","el password es obligatorio").not().isEmpty(),
    
-]
-
-,agregarUsuario)
+// ],
+agregarUsuario)
 
 router_usuarios.post("/login",
 [
@@ -28,7 +27,7 @@ router_usuarios.post("/login",
 
 ,loginUsuario)
 
-router_usuarios.put("/", editarUsuario)
+router_usuarios.put("/", validarUsuario)
 
 router_usuarios.delete("/:id",eliminarUsuario)
 

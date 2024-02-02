@@ -1,13 +1,13 @@
 // const CustomError = require("../utils/customError");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { TYPES } = require('mssql');
 
 const { conectarBaseDeDatos } = require("../database/dbSQL");
 
 //MYSQL
 const agregarUsuario = async (req, res) => {
     try {
-
         const {
             id_ciudadano,
             dni_ciudadano,
@@ -24,34 +24,98 @@ const agregarUsuario = async (req, res) => {
             habilita
         } = req.body;
 
-        
-
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(clave_ciudadano, saltRounds);
 
         const connection = await conectarBaseDeDatos();
 
-        const [user] = await connection.execute(
-            'SELECT * FROM ciudadano WHERE email_ciudadano = ?',
-            [email_ciudadano]
-        );
+        try {
+            const queryResult = await connection.query`SELECT * FROM ciudadano WHERE email_ciudadano = ${email_ciudadano}`;
+            const queryResult2 = await connection.query`SELECT * FROM ciudadano WHERE dni_ciudadano = ${dni_ciudadano}`;
 
-        if (user.length === 0) {
-            const [result] = await connection.execute(
-                'INSERT INTO ciudadano (id_ciudadano, dni_ciudadano, nombre_ciudadano, email_ciudadano, clave_ciudadano, telefono_ciudadano, celular_ciudadano, domicilio, id_provincia, id_localidad, validado, fecha_carga, habilita) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [id_ciudadano, dni_ciudadano, nombre_ciudadano, email_ciudadano, hashedPassword, telefono_ciudadano, celular_ciudadano, domicilio, id_provincia, id_localidad, validado, fecha_carga, habilita]
-            );
-
-            await connection.end();
-
-            res.status(200).json({ message: "Ciudadano creado con éxito", insertedId: result.insertId });
-        } else {
-            res.status(400).json({ message: "Ciudadano ya existente", userEmail: user[0].email_ciudadano });
+            if (queryResult.recordsets && queryResult.recordsets.length > 0 && queryResult.recordsets[0].length > 0) {
+                // Ya existe un usuario con el mismo email
+                res.status(400).json({ message: "Email ya registrado", userEmail: email_ciudadano });
+            }
+            
+            else if(queryResult2.recordsets && queryResult2.recordsets.length > 0 && queryResult2.recordsets[0].length > 0) {
+                res.status(400).json({ message: "DNI ya registrado", userDNI: dni_ciudadano });
+            }
+    
+            
+            
+            
+            else {
+                // No hay registros con el mismo email, puedes proceder con la inserción
+                const result = await connection.query`INSERT INTO ciudadano ( dni_ciudadano, nombre_ciudadano, email_ciudadano, clave_ciudadano, telefono_ciudadano, celular_ciudadano, domicilio, id_provincia, id_localidad, validado, fecha_carga, habilita) VALUES ( ${dni_ciudadano}, ${nombre_ciudadano}, ${email_ciudadano}, ${hashedPassword}, ${telefono_ciudadano}, ${celular_ciudadano}, ${domicilio}, ${id_provincia}, ${id_localidad}, ${validado}, ${fecha_carga}, ${habilita})`;
+        
+                res.status(200).json({ message: "Ciudadano creado con éxito" });
+            }
+        } catch (error) {
+            res.status(500).json({ message: error.message || "Algo salió mal :(" });
         }
     } catch (error) {
         res.status(500).json({ message: error.message || "Algo salió mal :(" });
     }
 };
+
+const validarUsuario = async (req, res) => {
+    try {
+        const { email_ciudadano } = req.body;
+
+        const connection = await conectarBaseDeDatos();
+
+        try {
+            const queryResult = await connection.query`SELECT * FROM ciudadano WHERE email_ciudadano = ${email_ciudadano}`;
+
+            if (queryResult.recordsets && queryResult.recordsets.length > 0 && queryResult.recordsets[0].length > 0) {
+                const usuario = queryResult.recordsets[0][0];
+
+                if (!usuario.validado) {
+                    // El usuario existe y no está validado, proceder con la actualización
+                    const result = await connection.query`UPDATE ciudadano SET validado = 1 WHERE email_ciudadano = ${email_ciudadano}`;
+                    res.status(200).json({ message: "Usuario validado con éxito" });
+                } else {
+                    // El usuario ya está validado
+                    res.status(400).json({ message: "El usuario ya está validado" });
+                }
+            } else {
+                // No se encontró el usuario
+                res.status(404).json({ message: "Usuario no encontrado" });
+            }
+        } catch (error) {
+            res.status(500).json({ message: error.message || "Algo salió mal :(" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Algo salió mal :(" });
+    }
+};
+
+const obtenerTodosLosCiudadanos = async (req, res) => {
+    try {
+        const connection = await conectarBaseDeDatos();
+
+        try {
+            const queryResult = await connection.query`SELECT * FROM ciudadano`;
+
+            if (queryResult.recordsets && queryResult.recordsets.length > 0) {
+                const ciudadanos = queryResult.recordsets[0];
+                res.status(200).json({ ciudadanos });
+            } else {
+                res.status(404).json({ message: "No se encontraron usuarios" });
+            }
+        } catch (error) {
+            res.status(500).json({ message: error.message || "Algo salió mal :(" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Algo salió mal :(" });
+    }
+};
+
+
+
+
+
 
 // const login = async (req, res) => {
 //     try {
@@ -112,4 +176,4 @@ const agregarUsuario = async (req, res) => {
 
 
 
-module.exports = {  agregarUsuario }
+module.exports = {  agregarUsuario ,validarUsuario,obtenerTodosLosCiudadanos}
