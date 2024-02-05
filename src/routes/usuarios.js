@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const { check } = require("express-validator");
 const { crearUsuario, mostrarUsuarios, loginUsuario, editarUsuario, eliminarUsuario } = require("../controllers/usuarioCRUD");
-const { agregarUsuario, validarUsuario, obtenerTodosLosCiudadanos } = require("../controllers/ditecUsuariosControllers");
+const { agregarUsuario, validarUsuario, obtenerTodosLosCiudadanos, obtenerCiudadanoPorId, obtenerCiudadanoPorDNI, obtenerCiudadanoPorEMAIL } = require("../controllers/ditecUsuariosControllers");
 
 
 const router_usuarios=Router();
@@ -9,6 +9,8 @@ const router_usuarios=Router();
 
 // endpoints de usuarios
 router_usuarios.get("/",obtenerTodosLosCiudadanos)
+router_usuarios.get('/dni/:dni', obtenerCiudadanoPorDNI);
+router_usuarios.get('/email/:email', obtenerCiudadanoPorEMAIL);
 
 router_usuarios.post("/",
 // [

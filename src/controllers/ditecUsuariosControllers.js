@@ -9,7 +9,7 @@ const { conectarBaseDeDatos } = require("../database/dbSQL");
 const agregarUsuario = async (req, res) => {
     try {
         const {
-            id_ciudadano,
+            
             dni_ciudadano,
             nombre_ciudadano,
             email_ciudadano,
@@ -17,8 +17,8 @@ const agregarUsuario = async (req, res) => {
             telefono_ciudadano,
             celular_ciudadano,
             domicilio,
-            id_provincia,
-            id_localidad,
+            provincia,
+            localidad,
             validado,
             fecha_carga,
             habilita
@@ -47,7 +47,7 @@ const agregarUsuario = async (req, res) => {
             
             else {
                 // No hay registros con el mismo email, puedes proceder con la inserción
-                const result = await connection.query`INSERT INTO ciudadano ( dni_ciudadano, nombre_ciudadano, email_ciudadano, clave_ciudadano, telefono_ciudadano, celular_ciudadano, domicilio, id_provincia, id_localidad, validado, fecha_carga, habilita) VALUES ( ${dni_ciudadano}, ${nombre_ciudadano}, ${email_ciudadano}, ${hashedPassword}, ${telefono_ciudadano}, ${celular_ciudadano}, ${domicilio}, ${id_provincia}, ${id_localidad}, ${validado}, ${fecha_carga}, ${habilita})`;
+                const result = await connection.query`INSERT INTO ciudadano ( dni_ciudadano, nombre_ciudadano, email_ciudadano, clave_ciudadano, telefono_ciudadano, celular_ciudadano, domicilio, provincia, localidad, validado, fecha_carga, habilita) VALUES ( ${dni_ciudadano}, ${nombre_ciudadano}, ${email_ciudadano}, ${hashedPassword}, ${telefono_ciudadano}, ${celular_ciudadano}, ${domicilio}, ${provincia}, ${localidad}, ${validado}, ${fecha_carga}, ${habilita})`;
         
                 res.status(200).json({ message: "Ciudadano creado con éxito" });
             }
@@ -112,7 +112,57 @@ const obtenerTodosLosCiudadanos = async (req, res) => {
     }
 };
 
+const obtenerCiudadanoPorDNI = async (req, res) => {
+    try {
+        const connection = await conectarBaseDeDatos();
 
+        try {
+            const userDNI = req.params.dni; // Obtener el ID del usuario de los parámetros de la URL
+            const queryResult = await connection.query`SELECT * FROM ciudadano WHERE dni_ciudadano = ${userDNI}`;
+
+            if (queryResult.recordsets && queryResult.recordsets.length > 0) {
+                const ciudadano = queryResult.recordsets[0][0]; // Suponiendo que solo hay un usuario con ese ID
+                if (ciudadano) {
+                    res.status(200).json({ ciudadano });
+                } else {
+                    res.status(200).json({ message: "Usuario no encontrado" });
+                }
+            } else {
+                res.status(200).json({ message: "No se encontraron usuarios" });
+            }
+        } catch (error) {
+            res.status(500).json({ message: error.message || "Algo salió mal :(" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Algo salió mal :(" });
+    }
+};
+
+const obtenerCiudadanoPorEMAIL = async (req, res) => {
+    try {
+        const connection = await conectarBaseDeDatos();
+
+        try {
+            const userEMAIL = req.params.email; // Obtener el ID del usuario de los parámetros de la URL
+            const queryResult = await connection.query`SELECT * FROM ciudadano WHERE email_ciudadano = ${userEMAIL}`;
+
+            if (queryResult.recordsets && queryResult.recordsets.length > 0) {
+                const ciudadano = queryResult.recordsets[0][0]; // Suponiendo que solo hay un usuario con ese ID
+                if (ciudadano) {
+                    res.status(200).json({ ciudadano });
+                } else {
+                    res.status(200).json({ message: "Usuario no encontrado" });
+                }
+            } else {
+                res.status(200).json({ message: "No se encontraron usuarios" });
+            }
+        } catch (error) {
+            res.status(500).json({ message: error.message || "Algo salió mal :(" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Algo salió mal :(" });
+    }
+};
 
 
 
@@ -176,4 +226,4 @@ const obtenerTodosLosCiudadanos = async (req, res) => {
 
 
 
-module.exports = {  agregarUsuario ,validarUsuario,obtenerTodosLosCiudadanos}
+module.exports = {  agregarUsuario ,validarUsuario,obtenerTodosLosCiudadanos,obtenerCiudadanoPorDNI, obtenerCiudadanoPorEMAIL}
