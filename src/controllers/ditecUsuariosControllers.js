@@ -167,39 +167,35 @@ const obtenerCiudadanoPorEMAIL = async (req, res) => {
 
 
 
-// const login = async (req, res) => {
-//     try {
-//         const { email_ciudadano, password } = req.body;
-//         if (!email_ciudadano || !password)
-//             throw new CustomError("Usuario y contraseña son requeridas", 400);
+const login = async (req, res) => {
+    try {
+        const { email_ciudadano, clave_ciudadano } = req.body;
+        if (!email_ciudadano || !clave_ciudadano) {
+            return res.status(400).json({ message: "Usuario y contraseña son requeridas", ok: false });
+        }
 
-//         const connection = await conectarBaseDeDatos();
-//         const [result] = await connection.execute(
-//             'SELECT * FROM ciudadano WHERE email_ciudadano = ?',
-//             [email_ciudadano]
-//         );
+        const connection = await conectarBaseDeDatos();
+        const queryResult = await connection.query(`SELECT * FROM ciudadano WHERE email_ciudadano =  '${email_ciudadano}'`);
+        
+        if (!queryResult.recordsets[0][0]) {
+            return res.status(200).json({ message: "Usuario no encontrado", ok: false });
+        } 
 
-//         await connection.end();
-//         if (result.length === 0) throw new CustomError("Usuario no encontrado", 404);
+        const passOk = await bcrypt.compare(clave_ciudadano, queryResult.recordsets[0][0].clave_ciudadano.trim());
+        
+        if (!passOk) {
+            return res.status(200).json({ message: "Contraseña incorrecta", ok: false });
+        }
 
-//         // Cambié result[0].contraseña a result[0].clave_ciudadano para reflejar el cambio en la estructura de la tabla
-//         const passOk = await bcrypt.compare(password, result[0].clave_ciudadano);
-//         if (!passOk) throw new CustomError("Contraseña incorrecta", 400);
+        // const token = jwt.sign({ id: result[0].id_ciudadano }, process.env.JWT_SECRET_KEY, {
+        //     expiresIn: "8h",
+        // });
 
-//         const token = jwt.sign({ id: result[0].id_ciudadano }, process.env.JWT_SECRET_KEY, {
-//             expiresIn: "8h",
-//         });
-
-       
-//         res
-//             .status(200)
-//             .json({ message: "Ingreso correcto", ok: true, token });
-//     } catch (error) {
-//         res
-//             .status(error.code || 500)
-//             .json({ message: error.message || "algo explotó :|" });
-//     }
-// };
+        return res.status(200).json({ message: "Ingreso correcto", ok: true });
+    } catch (error) {
+        return res.status(error.code || 500).json({ message: error.message || "algo explotó :|" });
+    }
+};
 
 
 // const getAuthStatus = async (req, res) => {
@@ -226,4 +222,4 @@ const obtenerCiudadanoPorEMAIL = async (req, res) => {
 
 
 
-module.exports = {  agregarUsuario ,validarUsuario,obtenerTodosLosCiudadanos,obtenerCiudadanoPorDNI, obtenerCiudadanoPorEMAIL}
+module.exports = {  agregarUsuario ,validarUsuario,obtenerTodosLosCiudadanos,obtenerCiudadanoPorDNI, obtenerCiudadanoPorEMAIL,login}
