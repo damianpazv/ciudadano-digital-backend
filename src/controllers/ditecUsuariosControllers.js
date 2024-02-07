@@ -2,8 +2,23 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { TYPES } = require('mssql');
+const dotenv = require('dotenv');
+dotenv.config();
 
 const { conectarBaseDeDatos } = require("../database/dbSQL");
+const nodemailer = require('nodemailer');
+// Configurar el transporte de Nodemailer
+const transporter = nodemailer.createTransport({
+    service: 'Outlook',
+    auth: {
+      user: 'develop.ditec@outlook.es', // Coloca tu dirección de correo electrónico
+      pass: process.env.PASSWORD_GMAIL // Coloca tu contraseña
+    }
+  });
+const generarCodigoValidacion = () => {
+    // Genera un código de 4 dígitos aleatorio
+    return Math.floor(1000 + Math.random() * 9000);
+  };
 
 //MYSQL
 const agregarUsuario = async (req, res) => {
@@ -23,6 +38,8 @@ const agregarUsuario = async (req, res) => {
             fecha_carga,
             habilita
         } = req.body;
+
+        const codigoValidacion = generarCodigoValidacion();
 
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(clave_ciudadano, saltRounds);
@@ -47,9 +64,30 @@ const agregarUsuario = async (req, res) => {
             
             else {
                 // No hay registros con el mismo email, puedes proceder con la inserción
-                const result = await connection.query`INSERT INTO ciudadano ( dni_ciudadano, nombre_ciudadano, email_ciudadano, clave_ciudadano, telefono_ciudadano, celular_ciudadano, domicilio, provincia, localidad, validado, fecha_carga, habilita) VALUES ( ${dni_ciudadano}, ${nombre_ciudadano}, ${email_ciudadano}, ${hashedPassword}, ${telefono_ciudadano}, ${celular_ciudadano}, ${domicilio}, ${provincia}, ${localidad}, ${validado}, ${fecha_carga}, ${habilita})`;
+                const result = await connection.query`INSERT INTO ciudadano ( dni_ciudadano, nombre_ciudadano, email_ciudadano, clave_ciudadano, telefono_ciudadano, celular_ciudadano, domicilio, provincia, localidad, validado, fecha_carga, habilita,codigo_verif) VALUES ( ${dni_ciudadano}, ${nombre_ciudadano}, ${email_ciudadano}, ${hashedPassword}, ${telefono_ciudadano}, ${celular_ciudadano}, ${domicilio}, ${provincia}, ${localidad}, ${validado}, ${fecha_carga}, ${habilita},${codigoValidacion})`;
         
-                res.status(200).json({ message: "Ciudadano creado con éxito" });
+
+// Enviar correo electrónico al usuario recién registrado
+const mailOptions = {
+    from: 'develop.ditec@outlook.es', // Coloca tu dirección de correo electrónico
+    to: email_ciudadano, // Utiliza el correo electrónico del usuario recién registrado
+    subject: 'Código de validación',
+    text: `Tu código de validación es: ${codigoValidacion}`
+  };
+  
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error('Error al enviar el correo electrónico:', error);
+    } else {
+      console.log('Correo electrónico enviado correctamente:', info.response);
+    }
+  });
+
+
+
+ res.status(200).json({ message: "Ciudadano creado con éxito" });
+
+
             }
         } catch (error) {
             res.status(500).json({ message: error.message || "Algo salió mal :(" });
@@ -61,7 +99,7 @@ const agregarUsuario = async (req, res) => {
 
 const validarUsuario = async (req, res) => {
     try {
-        const { email_ciudadano } = req.body;
+        const { email_ciudadano, codigo_verif } = req.body;
 
         const connection = await conectarBaseDeDatos();
 
@@ -72,9 +110,15 @@ const validarUsuario = async (req, res) => {
                 const usuario = queryResult.recordsets[0][0];
 
                 if (!usuario.validado) {
-                    // El usuario existe y no está validado, proceder con la actualización
-                    const result = await connection.query`UPDATE ciudadano SET validado = 1 WHERE email_ciudadano = ${email_ciudadano}`;
-                    res.status(200).json({ message: "Usuario validado con éxito" });
+                    // Verificar si el código de verificación coincide
+                    if (usuario.codigo_verif === codigo_verif) {
+                        // El usuario existe, el código de verificación coincide y no está validado, proceder con la actualización
+                        const result = await connection.query`UPDATE ciudadano SET validado = 1 WHERE email_ciudadano = ${email_ciudadano}`;
+                        res.status(200).json({ message: "Usuario validado con éxito",ok:true });
+                    } else {
+                        // El código de verificación no coincide
+                        res.status(200).json({ message: "El código de verificación es incorrecto",ok:false });
+                    }
                 } else {
                     // El usuario ya está validado
                     res.status(400).json({ message: "El usuario ya está validado" });
