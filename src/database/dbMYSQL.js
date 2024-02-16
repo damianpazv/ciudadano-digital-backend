@@ -1,19 +1,19 @@
-// const mysql = require('mysql2/promise');
+const mysql = require('mysql2/promise');
 
-// const conectarMySql = async () => {
-//     try {
-//         const connection = await mysql.createConnection({
-//             host: process.env.HOST,
-//             user: process.env.USER,
-//             password: process.env.PASSWORD,
-//             database: process.env.DATABASE_CIU,
-//         });
-//         return connection;
-//     } catch (error) {
-//         console.error('Error de conexión MySql:', error);
-//         throw error;
-//     }
-// }
+const conectarMySql = async () => {
+    try {
+        const connection = await mysql.createConnection({
+            host: process.env.HOST,
+            user: process.env.USER,
+            password: process.env.PASSWORD,
+            database: process.env.DATABASE_CIU,
+        });
+        return connection;
+    } catch (error) {
+        console.error('Error de conexión MySql:', error);
+        throw error;
+    }
+}
 
 // const conectarYEjecutarProcedimiento = async (procedimientoAlmacenado, desde, hasta) => {
 //     try {
@@ -37,4 +37,4 @@
 //     }
 // }
 
-// module.exports = { conectarMySql, conectarYEjecutarProcedimiento };
+module.exports = { conectarMySql};
