@@ -35,6 +35,7 @@ const transporter = nodemailer.createTransport({
 //MYSQL
 
 const agregarUsuarioMYSQL = async (req, res) => {
+    let connection;
     try {
         const {     
             documento_persona,
@@ -43,87 +44,289 @@ const agregarUsuarioMYSQL = async (req, res) => {
             email_persona,
             clave,
             telefono_persona,
-            celular_persona,
             domicilio_persona,
             id_provincia,
             localidad_persona,
             id_pais,
             fecha_nacimiento_persona,
             id_genero,
+            id_tdocumento,
             validado,
             habilita
         } = req.body;
 
-        const codigoValidacion = generarCodigo(documento_persona);
-
         const hashedPassword = await bcrypt.hash(clave, 10);
 
         // Establecer la conexión a la base de datos MySQL
-      
-        const connection = await conectarMySql();
-
-        // Conexión establecida, ahora puedes usarla
-        connection.connect();
+        connection = await conectarMySql();
 
         // Consultar si ya existe un usuario con el mismo email o documento
-        const queryEmail = `SELECT * FROM ciudadano WHERE email_persona = ?`;
-        const queryDocumento = `SELECT * FROM ciudadano WHERE documento_persona = ?`;
+        const [resultEmail] = await connection.query('SELECT * FROM persona WHERE email_persona = ?', [email_persona]);
+        if (resultEmail.length > 0) {
+            return res.status(400).json({ message: "Email ya registrado", userEmail: email_persona });
+        }
 
-        connection.query(queryEmail, [email_persona], async (errorEmail, resultEmail) => {
-            if (errorEmail) {
-                res.status(500).json({ message: errorEmail.message || "Error al verificar el email" });
-            } else if (resultEmail.length > 0) {
-                res.status(400).json({ message: "Email ya registrado", userEmail: email_persona });
-            } else {
-                connection.query(queryDocumento, [documento_persona], async (errorDocumento, resultDocumento) => {
-                    if (errorDocumento) {
-                        res.status(500).json({ message: errorDocumento.message || "Error al verificar el documento" });
-                    } else if (resultDocumento.length > 0) {
-                        res.status(400).json({ message: "DNI ya registrado", userDNI: documento_persona });
-                    } else {
-                        // Insertar el nuevo usuario
-                        const queryInsert = `INSERT INTO ciudadano (documento_persona, nombre_persona, apellido_persona, email_persona, clave, telefono_persona, celular_persona, domicilio_persona, id_provincia, id_pais, localidad_persona, validado, habilita, fecha_nacimiento_persona, id_genero) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-                        connection.query(queryInsert, [documento_persona, nombre_persona, apellido_persona, email_persona, hashedPassword, telefono_persona, celular_persona, domicilio_persona, id_provincia, id_pais, localidad_persona, validado, habilita, fecha_nacimiento_persona, id_genero], async (errorInsert, resultInsert) => {
-                            if (errorInsert) {
-                                res.status(500).json({ message: errorInsert.message || "Error al insertar el nuevo usuario" });
-                            } else {
-                                // Enviar correo electrónico al usuario recién registrado
-                                const transporter = nodemailer.createTransport({
-                                    host: 'tu_host_de_correo',
-                                    port: 465,
-                                    secure: true,
-                                    auth: {
-                                        user: 'tu_correo_electronico',
-                                        pass: 'tu_contraseña'
-                                    }
-                                });
+        const [resultDocumento] = await connection.query('SELECT * FROM persona WHERE documento_persona = ?', [documento_persona]);
+        if (resultDocumento.length > 0) {
+            return res.status(400).json({ message: "DNI ya registrado", userDNI: documento_persona });
+        }
 
-                                const mailOptions = {
-                                    from: 'develop.ditec@zohomail.com', // Coloca tu dirección de correo electrónico
-                                    to: email_persona, // Utiliza el correo electrónico del usuario recién registrado
-                                    subject: 'Código de validación',
-                                    text: `Tu código de validación es: ${codigoValidacion}`
-                                };
+        // Insertar el nuevo usuario
+        const [resultInsert] = await connection.query(
+            'INSERT INTO persona (documento_persona, nombre_persona, apellido_persona, email_persona, clave, telefono_persona, domicilio_persona, id_provincia, id_pais, localidad_persona, validado, habilita, fecha_nacimiento_persona, id_genero, id_tdocumento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [documento_persona, nombre_persona, apellido_persona, email_persona, hashedPassword, telefono_persona, domicilio_persona, id_provincia, id_pais, localidad_persona, validado, habilita, fecha_nacimiento_persona, id_genero, id_tdocumento]
+        );
+
+        // Enviar correo electrónico al usuario recién registrado
+                                // const transporter = nodemailer.createTransport({
+                                //     host: 'tu_host_de_correo',
+                                //     port: 465, 
+                                //     secure: true,
+                                //     auth: {
+                                //         user: 'tu_correo_electronico',
+                                //         pass: 'tu_contraseña'
+                                //     }
+                                // });
+
+                                // const mailOptions = {
+                                //     from: 'develop.ditec@zohomail.com', // Coloca tu dirección de correo electrónico
+                                //     to: email_persona, // Utiliza el correo electrónico del usuario recién registrado
+                                //     subject: 'Código de validación',
+                                //     text: `Tu código de validación es: ${codigoValidacion}`
+                                // };
                                 
-                                transporter.sendMail(mailOptions, (errorEmail, info) => {
-                                    if (errorEmail) {
-                                        console.error('Error al enviar el correo electrónico:', errorEmail);
-                                    } else {
-                                        console.log('Correo electrónico enviado correctamente:', info.response);
-                                    }
-                                });
+                                // transporter.sendMail(mailOptions, (errorEmail, info) => {
+                                //     if (errorEmail) {
+                                //         console.error('Error al enviar el correo electrónico:', errorEmail);
+                                //     } else {
+                                //         console.log('Correo electrónico enviado correctamente:', info.response);
+                                //     }
+                                // });
 
-                                res.status(200).json({ message: "Ciudadano creado con éxito" });
-                            }
-                        });
-                    }
-                });
+        return res.status(200).json({ message: "Ciudadano creado con éxito" });
+    } catch (error) {
+        return res.status(500).json({ message: error.message || "Algo salió mal :(" });
+    } finally {
+        // Cerrar la conexión a la base de datos
+        if (connection) {
+            connection.end();
+        }
+    }
+};
+
+
+const obtenerTodosLosCiudadanosMYSQL = async (req, res) => {
+    let connection;
+    try {
+        // Establecer la conexión a la base de datos MySQL
+        connection = await conectarMySql();
+
+        // Realizar la consulta a la base de datos
+        const [rows, fields] = await connection.query('SELECT * FROM persona');
+
+        // Verificar si se encontraron resultados
+        if (rows && rows.length > 0) {
+            res.status(200).json({ ciudadanos: rows });
+        } else {
+            res.status(404).json({ message: "No se encontraron usuarios" });
+        }
+    } catch (error) {
+        // Manejo de errores específicos
+        if (error.code === 'ER_ACCESS_DENIED_ERROR') {
+            res.status(500).json({ message: "Error de acceso a la base de datos" });
+        } else if (error.code === 'ECONNREFUSED') {
+            res.status(500).json({ message: "No se pudo conectar a la base de datos" });
+        } else {
+            res.status(500).json({ message: error.message || "Algo salió mal :(" });
+        }
+    } 
+    
+    finally {
+        // Cerrar la conexión a la base de datos
+        if (connection) {
+            connection.end();
+        }
+    }
+};
+
+const obtenerPaisesMYSQL = async (req, res) => {
+    let connection;
+    try {
+        // Establecer la conexión a la base de datos MySQL
+        connection = await conectarMySql();
+
+        // Realizar la consulta a la base de datos
+        const [rows, fields] = await connection.query('SELECT * FROM pais');
+
+        // Verificar si se encontraron resultados
+        if (rows && rows.length > 0) {
+            res.status(200).json({ ciudadanos: rows });
+        } else {
+            res.status(404).json({ message: "No se encontraron usuarios" });
+        }
+    } catch (error) {
+        // Manejo de errores específicos
+        if (error.code === 'ER_ACCESS_DENIED_ERROR') {
+            res.status(500).json({ message: "Error de acceso a la base de datos" });
+        } else if (error.code === 'ECONNREFUSED') {
+            res.status(500).json({ message: "No se pudo conectar a la base de datos" });
+        } else {
+            res.status(500).json({ message: error.message || "Algo salió mal :(" });
+        }
+    } finally {
+        // Cerrar la conexión a la base de datos
+        if (connection) {
+            connection.end();
+        }
+    }
+};
+
+const obtenerProvinciasMYSQL = async (req, res) => {
+    let connection;
+    try {
+        // Establecer la conexión a la base de datos MySQL
+        connection = await conectarMySql();
+
+        // Realizar la consulta a la base de datos
+        const [rows, fields] = await connection.query('SELECT * FROM provincia');
+
+        // Verificar si se encontraron resultados
+        if (rows && rows.length > 0) {
+            res.status(200).json({ ciudadanos: rows });
+        } else {
+            res.status(404).json({ message: "No se encontraron usuarios" });
+        }
+    } catch (error) {
+        // Manejo de errores específicos
+        if (error.code === 'ER_ACCESS_DENIED_ERROR') {
+            res.status(500).json({ message: "Error de acceso a la base de datos" });
+        } else if (error.code === 'ECONNREFUSED') {
+            res.status(500).json({ message: "No se pudo conectar a la base de datos" });
+        } else {
+            res.status(500).json({ message: error.message || "Algo salió mal :(" });
+        }
+    } finally {
+        // Cerrar la conexión a la base de datos
+        if (connection) {
+            connection.end();
+        }
+    }
+};
+const obtenerGeneroMYSQL = async (req, res) => {
+    let connection;
+    try {
+        // Establecer la conexión a la base de datos MySQL
+        connection = await conectarMySql();
+
+        // Realizar la consulta a la base de datos
+        const [rows, fields] = await connection.query('SELECT * FROM genero');
+
+        // Verificar si se encontraron resultados
+        if (rows && rows.length > 0) {
+            res.status(200).json({ ciudadanos: rows });
+        } else {
+            res.status(404).json({ message: "No se encontraron usuarios" });
+        }
+    } catch (error) {
+        // Manejo de errores específicos
+        if (error.code === 'ER_ACCESS_DENIED_ERROR') {
+            res.status(500).json({ message: "Error de acceso a la base de datos" });
+        } else if (error.code === 'ECONNREFUSED') {
+            res.status(500).json({ message: "No se pudo conectar a la base de datos" });
+        } else {
+            res.status(500).json({ message: error.message || "Algo salió mal :(" });
+        }
+    } finally {
+        // Cerrar la conexión a la base de datos
+        if (connection) {
+            connection.end();
+        }
+    }
+};
+
+const obtenerDocumentoMYSQL = async (req, res) => {
+    let connection;
+    try {
+        // Establecer la conexión a la base de datos MySQL
+        connection = await conectarMySql();
+
+        // Realizar la consulta a la base de datos
+        const [rows, fields] = await connection.query('SELECT * FROM tipo_documento');
+
+        // Verificar si se encontraron resultados
+        if (rows && rows.length > 0) {
+            res.status(200).json({ ciudadanos: rows });
+        } else {
+            res.status(404).json({ message: "No se encontraron usuarios" });
+        }
+    } catch (error) {
+        // Manejo de errores específicos
+        if (error.code === 'ER_ACCESS_DENIED_ERROR') {
+            res.status(500).json({ message: "Error de acceso a la base de datos" });
+        } else if (error.code === 'ECONNREFUSED') {
+            res.status(500).json({ message: "No se pudo conectar a la base de datos" });
+        } else {
+            res.status(500).json({ message: error.message || "Algo salió mal :(" });
+        }
+    } finally {
+        // Cerrar la conexión a la base de datos
+        if (connection) {
+            connection.end();
+        }
+    }
+};
+
+const obtenerCiudadanoPorDNIMYSQL = async (req, res) => {
+    let connection;
+    try {
+        connection = await conectarMySql();
+
+        const userDNI = req.params.dni;
+        const queryResult = await connection.query("SELECT * FROM persona WHERE documento_persona = ?", [userDNI]);
+
+        if (queryResult.length > 0) {
+            const ciudadano = queryResult[0]; // Suponiendo que solo hay un usuario con ese DNI
+            if (ciudadano.length > 0) {
+                res.status(200).json({ ciudadano });
+            } else {
+                res.status(200).json({ message: "Usuario no encontrado" });
             }
-        });
-
-        connection.end();
+        } else {
+            res.status(200).json({ message: "Usuario no encontrado" });
+        }
     } catch (error) {
         res.status(500).json({ message: error.message || "Algo salió mal :(" });
+    } finally {
+        if (connection) {
+            connection.end();
+        }
+    }
+};
+
+const obtenerCiudadanoPorEmailMYSQL = async (req, res) => { 
+    let connection;
+    try {
+        connection = await conectarMySql();
+
+        const userEmail = req.params.email;
+        const queryResult = await connection.query("SELECT * FROM persona WHERE email_persona = ?", [userEmail]);
+
+        if (queryResult.length > 0) {
+            const ciudadano = queryResult[0]; // Suponiendo que solo hay un usuario con ese DNI
+            if (ciudadano.length > 0) {
+                res.status(200).json({ ciudadano });
+            } else {
+                res.status(200).json({ message: "Usuario no encontrado" });
+            }
+        } else {
+            res.status(200).json({ message: "Usuario no encontrado" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Algo salió mal :(" }); 
+    } finally {
+        if (connection) {
+            connection.end();
+        }
     }
 };
 
@@ -377,4 +580,10 @@ const login = async (req, res) => {
 
 
 
-module.exports = {  agregarUsuario ,validarUsuario,obtenerTodosLosCiudadanos,obtenerCiudadanoPorDNI, obtenerCiudadanoPorEMAIL,login}
+module.exports = {  agregarUsuarioMYSQL ,validarUsuario,obtenerTodosLosCiudadanosMYSQL,obtenerCiudadanoPorDNI, obtenerCiudadanoPorEMAIL,login,obtenerPaisesMYSQL,obtenerProvinciasMYSQL,obtenerGeneroMYSQL,obtenerDocumentoMYSQL,obtenerCiudadanoPorDNIMYSQL,obtenerCiudadanoPorEmailMYSQL}
+
+
+
+
+
+
