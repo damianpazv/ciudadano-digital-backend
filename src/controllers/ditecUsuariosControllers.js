@@ -9,14 +9,15 @@ const { conectarBaseDeDatos } = require("../database/dbSQL");
 const { conectarMySql } = require("../database/dbMYSQL");
 
 const nodemailer = require('nodemailer');
+const moment = require('moment-timezone');
 
 // Configurar el transporte de Nodemailer
 const transporter = nodemailer.createTransport({
     service: 'Zoho',
     auth: {
-      user: 'develop.ditec@zohomail.com', // Coloca tu dirección de correo electrónico
-    //   pass: process.env.PASSWORD_GMAIL
-      pass:"muni2024*" // Coloca tu contraseña
+      user: 'develop.ditec@zohomail.com', 
+       pass: process.env.PASSWORD_MAIL
+       
     }
   });
 // const generarCodigoValidacion = () => {
@@ -57,6 +58,11 @@ const agregarUsuarioMYSQL = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(clave, 10);
 
+        const fechaStr = fecha_nacimiento_persona;
+        const fechaFormateada = moment(fechaStr).format('YYYY-MM-DD');
+
+        const codigoValidacion=generarCodigo(documento_persona);
+
         // Establecer la conexión a la base de datos MySQL
         connection = await conectarMySql();
 
@@ -74,34 +80,26 @@ const agregarUsuarioMYSQL = async (req, res) => {
         // Insertar el nuevo usuario
         const [resultInsert] = await connection.query(
             'INSERT INTO persona (documento_persona, nombre_persona, apellido_persona, email_persona, clave, telefono_persona, domicilio_persona, id_provincia, id_pais, localidad_persona, validado, habilita, fecha_nacimiento_persona, id_genero, id_tdocumento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [documento_persona, nombre_persona, apellido_persona, email_persona, hashedPassword, telefono_persona, domicilio_persona, id_provincia, id_pais, localidad_persona, validado, habilita, fecha_nacimiento_persona, id_genero, id_tdocumento]
+            [documento_persona, nombre_persona, apellido_persona, email_persona, hashedPassword, telefono_persona, domicilio_persona, id_provincia, id_pais, localidad_persona, validado, habilita, fechaFormateada, id_genero, id_tdocumento]
         );
 
         // Enviar correo electrónico al usuario recién registrado
-                                // const transporter = nodemailer.createTransport({
-                                //     host: 'tu_host_de_correo',
-                                //     port: 465, 
-                                //     secure: true,
-                                //     auth: {
-                                //         user: 'tu_correo_electronico',
-                                //         pass: 'tu_contraseña'
-                                //     }
-                                // });
+                            
 
-                                // const mailOptions = {
-                                //     from: 'develop.ditec@zohomail.com', // Coloca tu dirección de correo electrónico
-                                //     to: email_persona, // Utiliza el correo electrónico del usuario recién registrado
-                                //     subject: 'Código de validación',
-                                //     text: `Tu código de validación es: ${codigoValidacion}`
-                                // };
+                                const mailOptions = {
+                                    from: 'develop.ditec@zohomail.com', // Coloca tu dirección de correo electrónico
+                                    to: email_persona, // Utiliza el correo electrónico del usuario recién registrado
+                                    subject: 'Código de validación',
+                                    text: `Tu código de validación es: ${codigoValidacion}`
+                                };
                                 
-                                // transporter.sendMail(mailOptions, (errorEmail, info) => {
-                                //     if (errorEmail) {
-                                //         console.error('Error al enviar el correo electrónico:', errorEmail);
-                                //     } else {
-                                //         console.log('Correo electrónico enviado correctamente:', info.response);
-                                //     }
-                                // });
+                                transporter.sendMail(mailOptions, (errorEmail, info) => {
+                                    if (errorEmail) {
+                                        console.error('Error al enviar el correo electrónico:', errorEmail);
+                                    } else {
+                                        console.log('Correo electrónico enviado correctamente:', info.response);
+                                    }
+                                });
 
         return res.status(200).json({ message: "Ciudadano creado con éxito" });
     } catch (error) {
@@ -330,6 +328,50 @@ const obtenerCiudadanoPorEmailMYSQL = async (req, res) => {
     }
 };
 
+const validarUsuarioMYSQL = async (req, res) => {
+    let connection;
+    try {
+        const { email_persona, codigo_verif } = req.body;
+
+        // Establecer la conexión a la base de datos MySQL
+        connection = await conectarMySql();
+
+        // Consultar el usuario por su email
+        const [result] = await connection.query('SELECT * FROM persona WHERE email_persona = ?', [email_persona]);
+
+        // Verificar si se encontró el usuario
+        if (result.length > 0) {
+            const usuario = result[0];
+            const codigo = generarCodigo(usuario.documento_persona);
+
+            // Verificar si el usuario ya está validado
+            if (!usuario.validado) {
+                // Verificar si el código de verificación coincide
+                if (codigo === codigo_verif) {
+                    // Actualizar el estado de validación del usuario
+                    await connection.query('UPDATE persona SET validado = 1 WHERE email_persona = ?', [email_persona]);
+                    return res.status(200).json({ message: "Usuario validado con éxito", ok: true });
+                } else {
+                    // El código de verificación no coincide
+                    return res.status(200).json({ message: "El código de verificación es incorrecto", ok: false });
+                }
+            } else {
+                // El usuario ya está validado
+                return res.status(400).json({ message: "El usuario ya está validado" });
+            }
+        } else {
+            // No se encontró el usuario
+            return res.status(404).json({ message: "Usuario no encontrado" });
+        }
+    } catch (error) {
+        return res.status(500).json({ message: error.message || "Algo salió mal :(" });
+    } finally {
+        // Cerrar la conexión a la base de datos
+        if (connection) {
+            connection.end();
+        }
+    }
+};
 
 
 
@@ -421,7 +463,7 @@ const validarUsuario = async (req, res) => {
         const connection = await conectarBaseDeDatos();
 
         try {
-            const queryResult = await connection.query`SELECT * FROM ciudadano WHERE email_persona = ${email_persona}`;
+            const queryResult = await connection.query`SELECT * FROM persona WHERE email_persona = ${email_persona}`;
 
             if (queryResult.recordsets && queryResult.recordsets.length > 0 && queryResult.recordsets[0].length > 0) {
                 const usuario = queryResult.recordsets[0][0];
@@ -430,7 +472,7 @@ const validarUsuario = async (req, res) => {
                     // Verificar si el código de verificación coincide
                     if (codigo === codigo_verif) {
                         // El usuario existe, el código de verificación coincide y no está validado, proceder con la actualización
-                        const result = await connection.query`UPDATE ciudadano SET validado = 1 WHERE email_persona = ${email_persona}`;
+                        const result = await connection.query`UPDATE persona SET validado = 1 WHERE email_persona = ${email_persona}`;
                         res.status(200).json({ message: "Usuario validado con éxito",ok:true });
                     } else {
                         // El código de verificación no coincide
@@ -580,7 +622,7 @@ const login = async (req, res) => {
 
 
 
-module.exports = {  agregarUsuarioMYSQL ,validarUsuario,obtenerTodosLosCiudadanosMYSQL,obtenerCiudadanoPorDNI, obtenerCiudadanoPorEMAIL,login,obtenerPaisesMYSQL,obtenerProvinciasMYSQL,obtenerGeneroMYSQL,obtenerDocumentoMYSQL,obtenerCiudadanoPorDNIMYSQL,obtenerCiudadanoPorEmailMYSQL}
+module.exports = {  agregarUsuarioMYSQL ,validarUsuario,obtenerTodosLosCiudadanosMYSQL,obtenerCiudadanoPorDNI, obtenerCiudadanoPorEMAIL,login,obtenerPaisesMYSQL,obtenerProvinciasMYSQL,obtenerGeneroMYSQL,obtenerDocumentoMYSQL,obtenerCiudadanoPorDNIMYSQL,obtenerCiudadanoPorEmailMYSQL,validarUsuarioMYSQL}
 
 
 

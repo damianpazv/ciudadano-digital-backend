@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const { check } = require("express-validator");
 const { crearUsuario, mostrarUsuarios, loginUsuario, editarUsuario, eliminarUsuario } = require("../controllers/usuarioCRUD");
-const { agregarUsuario, validarUsuario, obtenerTodosLosCiudadanos, obtenerCiudadanoPorId, obtenerCiudadanoPorDNI, obtenerCiudadanoPorEMAIL, login, obtenerTodosLosCiudadanosMYSQL, agregarUsuarioMYSQL, obtenerPaisesMYSQL, obtenerCiudadanoPorDNIMYSQL, obtenerCiudadanoPorEmailMYSQL } = require("../controllers/ditecUsuariosControllers");
+const { agregarUsuario, validarUsuario, obtenerTodosLosCiudadanos, obtenerCiudadanoPorId, obtenerCiudadanoPorDNI, obtenerCiudadanoPorEMAIL, login, obtenerTodosLosCiudadanosMYSQL, agregarUsuarioMYSQL, obtenerPaisesMYSQL, obtenerCiudadanoPorDNIMYSQL, obtenerCiudadanoPorEmailMYSQL, validarUsuarioMYSQL } = require("../controllers/ditecUsuariosControllers");
 
 
 const router_usuarios=Router();
@@ -14,7 +14,7 @@ router_usuarios.get("/",obtenerTodosLosCiudadanosMYSQL);
 
 
 router_usuarios.get('/dni/:dni', obtenerCiudadanoPorDNIMYSQL);
-router_usuarios.get('/email/:email', obtenerCiudadanoPorEmailMYSQL); 
+router_usuarios.get('/email/:email', obtenerCiudadanoPorEmailMYSQL);  
 
 router_usuarios.post("/registro",
 // [
@@ -33,7 +33,7 @@ router_usuarios.post("/login",
 
 login)
 
-router_usuarios.put("/", validarUsuario)
+router_usuarios.put("/", validarUsuarioMYSQL)
 
 router_usuarios.delete("/:id",eliminarUsuario)
 
