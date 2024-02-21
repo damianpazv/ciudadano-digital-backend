@@ -80,7 +80,7 @@ const agregarUsuarioMYSQL = async (req, res) => {
         // Insertar el nuevo usuario
         const [resultInsert] = await connection.query(
             'INSERT INTO persona (documento_persona, nombre_persona, apellido_persona, email_persona, clave, telefono_persona, domicilio_persona, id_provincia, id_pais, localidad_persona, validado, habilita, fecha_nacimiento_persona, id_genero, id_tdocumento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [documento_persona, nombre_persona, apellido_persona, email_persona, hashedPassword, telefono_persona, domicilio_persona, id_provincia, id_pais, localidad_persona, validado, habilita, fechaFormateada, id_genero, id_tdocumento]
+            [documento_persona, nombre_persona.toUpperCase(), apellido_persona.toUpperCase(), email_persona, hashedPassword, telefono_persona, domicilio_persona.toUpperCase(), id_provincia, id_pais, localidad_persona.toUpperCase(), validado, habilita, fechaFormateada, id_genero, id_tdocumento]
         );
 
         // Enviar correo electrónico al usuario recién registrado
@@ -349,7 +349,7 @@ const validarUsuarioMYSQL = async (req, res) => {
                 // Verificar si el código de verificación coincide
                 if (codigo === codigo_verif) {
                     // Actualizar el estado de validación del usuario
-                    await connection.query('UPDATE persona SET validado = 1 WHERE email_persona = ?', [email_persona]);
+                    await connection.query('UPDATE persona SET validado = 1, habilita = 1 WHERE email_persona = ?', [email_persona]);
                     return res.status(200).json({ message: "Usuario validado con éxito", ok: true });
                 } else {
                     // El código de verificación no coincide
